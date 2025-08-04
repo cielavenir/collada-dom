@@ -33,7 +33,7 @@ std::string fromList(UriPathSegmentA * xs, const std::string & delim)
     return accum;
 }
 #else
-#include <pcrecpp.h>
+#include <regex>
 #endif
 
 using namespace std;
@@ -175,12 +175,35 @@ void parsePath(const string& path,
        baseName = baseName.substr(0, baseName.find('.'));
     }
 #else
-    static pcrecpp::RE findDir("(.*/)?(.*)?");
-    static pcrecpp::RE findExt("([^.]*)?(\\..*)?");
-    string tmpFile;
-    dir = baseName = extension = tmpFile = "";
-    findDir.PartialMatch(path, &dir, &tmpFile);
-    findExt.PartialMatch(tmpFile, &baseName, &extension);
+    static const std::regex findDirRegex("(.*/)?(.*)?");
+    static const std::regex findExtRegex("([^.]*)?(\\..*)?");
+
+    // Clear the output by default
+    dir = baseName = extension = "";
+
+    // Try and match a directory
+    std::smatch pathMatch;
+    std::regex_search(path, pathMatch, findDirRegex);
+
+    // If we failed to match, leave the output blank
+    if (pathMatch.empty() || pathMatch.size() < 3) {
+        return;
+    }
+
+    // Otherwise, attempt to re-match on the file to get the base / extension
+    dir = pathMatch[1];
+    const std::string& filename = pathMatch[2];
+    std::smatch extMatch;
+    std::regex_search(filename, extMatch, findExtRegex);
+
+    // Failed to match, just return
+    if (extMatch.empty() || extMatch.size() < 3) {
+        return;
+    }
+
+    // Extract the base / extension
+    baseName = extMatch[1];
+    extension = extMatch[2];
 #endif
 }
 }
@@ -786,7 +809,7 @@ bool cdom::parseUriRef(const string& uriRef,
     UriParserStateA state;
     UriUriA uri;
     state.uri = &uri;
-    if ( uriParseUriA(&state, uriRef.c_str()) == 0 ) {
+    if (uriParseUriA(&state, uriRef.c_str()) == 0) {
         scheme = fromRange(uri.scheme);
         authority = fromRange(uri.hostText);
         path = fromList(uri.pathHead, "/");
@@ -800,10 +823,23 @@ bool cdom::parseUriRef(const string& uriRef,
 #else
     // This regular expression for parsing URI references comes from the URI spec:
     //   http://tools.ietf.org/html/rfc3986#appendix-B
-    static pcrecpp::RE re("^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?");
-    string s1, s3, s6, s8;
-    if (re.FullMatch(uriRef, &s1, &scheme, &s3, &authority, &path, &s6, &query, &s8, &fragment))
+    static const std::regex re("^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?");
+
+    // Attempt to match regex against our URI
+    std::smatch match;
+    std::regex_match(uriRef, match, re);
+
+    // If we failed to match, not a URI
+    if (!match.empty()) {
+        // Copy out the relevant match groups
+        // Note that the zero'th match is the full matched string
+        scheme = match[2];
+        authority = match[4];
+        path = match[5];
+        query = match[7];
+        fragment = match[9];
         return true;
+    }
 #endif
 
     return false;
