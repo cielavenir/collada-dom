@@ -46,7 +46,6 @@ option(OPT_COMPILE_TESTS "Compile collada tests" OFF)
 option(OPT_BUILD_PACKAGES "Set to ON to generate CPack configuration files and packaging targets" OFF)
 option(OPT_BUILD_PACKAGE_DEFAULT "Set to ON to generate a default openrave package that creates symlinks" ON)
 option(OPT_DOUBLE_PRECISION "Use double precision for everything (daeFloat included)" ON)
-#option(OPT_USE_PCRECPP "Use pcrecpp library to find basename and parse uri, otherwise use parseruri and basename function" OFF)
 
 set(COLLADA_DOM_EXTERNAL_FLAGS)
 if( OPT_COLLADA14 )
@@ -150,7 +149,7 @@ if( MSVC )
   set(Boost_USE_STATIC_RUNTIME OFF)
   set(Boost_CFLAGS "-DBOOST_ALL_DYN_LINK -DBOOST_ALL_NO_LIB")
 endif()
-  
+
 set(Boost_ADDITIONAL_VERSIONS "1.46" "1.45" "1.44" "1.43" "1.42" "1.41" "1.40" "1.39" "1.38" "1.37.0" "1.37" "1.35.0" "1.34.1" "1.34.0" "1.34" "1.33.1" "1.33.0" "1.33")
 
 if( NOT $ENV{BOOST_INCLUDEDIR} STREQUAL "" )
@@ -236,35 +235,12 @@ pkg_check_modules(liburiparser liburiparser)
 
 if(liburiparser_FOUND)
   set(liburiparser_CFLAGS_OTHERS "-DUSE_URIPARSER")
-else()
-  # try using pcrecpp
-  pkg_check_modules(libpcrecpp libpcrecpp)
-  if( libpcrecpp_FOUND )
-    set(CMAKE_REQUIRED_INCLUDES ${libpcrecpp_INCLUDE_DIRS})
-    check_include_file_cxx(pcrecpp.h HAVE_PCRECPP_H)
-    set(CMAKE_REQUIRED_INCLUDES)
-    if( NOT HAVE_PCRECPP_H )
-      set(libpcrecpp_FOUND 0)
-    endif()
-  endif()
-
-  if( NOT libpcrecpp_FOUND )
-    message(STATUS "System pcre not found, using local from sources")
-    # include the local pcre
-    add_subdirectory(dom/external-libs/pcre-8.02)
-    set(libpcrecpp_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/dom/external-libs/pcre-8.02)
-    set(libpcrecpp_LIBRARY_DIRS)
-    set(libpcrecpp_LIBRARIES pcrecpp_local)
-    set(libpcrecpp_CFLAGS_OTHERS "-DPCRE_STATIC")
-    set(libpcrecpp_LDFLAGS_OTHERS)
-  endif()
 endif()
 
 # declare minizip/zlib before libxml2! (for some reason the precompiled libxml2 libraries have zlib.h/zconf.h)
 include_directories(BEFORE ${MINIZIP_INCLUDE_DIR})
-include_directories(BEFORE ${libpcrecpp_INCLUDE_DIRS})
 
-set(COLLADA_DOM_LINK_DIRS ${COLLADA_DOM_LINK_DIRS} ${libpcrecpp_LIBRARY_DIRS})
+set(COLLADA_DOM_LINK_DIRS ${COLLADA_DOM_LINK_DIRS})
 link_directories(${COLLADA_DOM_LINK_DIRS})
 
 add_subdirectory(dom)
@@ -320,8 +296,8 @@ if(CMAKE_CPACK_COMMAND AND UNIX AND OPT_BUILD_PACKAGES)
   set(CPACK_COMPONENT_${COMPONENT_PREFIX_UPPER}-BASE_DISPLAY_NAME "core libraries")
   set(CPACK_COMPONENT_${COMPONENT_PREFIX_UPPER}-DEV_DISPLAY_NAME "C++ headers and build tools")
   set(CPACK_COMPONENT_${COMPONENT_PREFIX_UPPER}-DEV_DEPENDS ${COMPONENT_PREFIX}-base)
-  
-  set(CPACK_DEBIAN_BUILD_DEPENDS debhelper cmake libxml2-dev libboost-dev zlib1g-dev libboost-filesystem-dev libboost-system-dev libpcre3-dev pkg-config libtinyxml-dev liburiparser-dev CACHE STRING "Build dependency packages")
+
+  set(CPACK_DEBIAN_BUILD_DEPENDS debhelper cmake libxml2-dev libboost-dev zlib1g-dev libboost-filesystem-dev libboost-system-dev pkg-config libtinyxml-dev liburiparser-dev CACHE STRING "Build dependency packages")
 
   # debian
   set(CPACK_DEBIAN_PACKAGE_PRIORITY optional)
